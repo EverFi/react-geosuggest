@@ -236,18 +236,42 @@ class Geosuggest extends React.Component {
       }
     });
 
+    let suggestsCount = suggestsGoogle.length;
+    let checkedCount = 0;
     suggestsGoogle.forEach(suggest => {
-      if (!skipSuggest(suggest)) {
-        suggests.push({
-          label: this.props.getSuggestLabel(suggest),
-          placeId: suggest.place_id,
-          isFixture: false
+      if (this.props.geocodeAllSuggests) {
+        suggest.placeId = suggest.place_id;
+        suggest.label = this.props.getSuggestLabel(suggest);
+        this.geocodeSuggest(suggest, (geocodedSuggest) => {
+          checkedCount++;
+          if (!skipSuggest(geocodedSuggest)) {
+            suggests.push({
+              label: suggest.label,
+              placeId: suggest.placeId,
+              isFixture: false
+            });
+          }
+
+          if (checkedCount === suggestsCount) {
+            activeSuggest = this.updateActiveSuggest(suggests);
+            this.setState({suggests: suggests, activeSuggest: activeSuggest}, callback);
+          }
         });
+      } else {
+        if (!skipSuggest(suggest)) {
+          suggests.push({
+            label: this.props.getSuggestLabel(suggest),
+            placeId: suggest.place_id,
+            isFixture: false
+          });
+        }
       }
     });
 
-    activeSuggest = this.updateActiveSuggest(suggests);
-    this.setState({suggests, activeSuggest}, callback);
+    if (!this.props.geocodeAllSuggests) {
+      activeSuggest = this.updateActiveSuggest(suggests);
+      this.setState({suggests, activeSuggest}, callback);
+    }
   }
 
   /**
@@ -355,7 +379,7 @@ class Geosuggest extends React.Component {
    * Geocode a suggest
    * @param  {Object} suggest The suggest
    */
-  geocodeSuggest(suggest) {
+  geocodeSuggest(suggest, callback) {
     this.geocoder.geocode(
       suggest.placeId && !suggest.isFixture ?
         {placeId: suggest.placeId} : {address: suggest.label},
@@ -370,7 +394,11 @@ class Geosuggest extends React.Component {
             lng: location.lng()
           };
         }
-        this.props.onSuggestSelect(suggest);
+        if (callback){
+          callback(suggest);
+        } else {
+          this.props.onSuggestSelect(suggest);
+        }
       }
     );
   }
